@@ -1,0 +1,298 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[3]:
+
+
+get_ipython().system('pip install jovian --upgrade --quiet')
+
+
+# In[4]:
+
+
+#import Libraries
+import jovian
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+get_ipython().run_line_magic('matplotlib', 'inline')
+import matplotlib
+
+
+# In[5]:
+
+
+#Loading the Dataset
+netflix_titles_df = pd.read_csv('netflix_titles.csv')
+netflix_titles_df.head()
+
+
+# In[6]:
+
+
+#Data Preparation and Cleaning
+netflix_titles_df.info()
+
+
+# In[7]:
+
+
+#There are 6,234 entries and 12 columns to work with for EDA. Right off the bat, there are a few columns that contain null values ('director', 'cast', 'country', 'date_added', 'rating')
+netflix_titles_df.nunique()
+
+
+# In[10]:
+
+
+#Handling Null Values
+netflix_titles_df.isnull().sum().sum()
+
+
+# In[11]:
+
+
+netflix_titles_df.isnull().values.any()
+
+
+# In[12]:
+
+
+sns.heatmap(netflix_titles_df.isnull(), cbar=False)
+plt.title('Null Values Heatmap')
+plt.show()
+
+
+# In[13]:
+
+
+netflix_titles_df.isnull().sum()
+
+
+# In[14]:
+
+
+#Above in the heatmap and table, we can see that there are quite a few null values in the dataset. 
+#There are a total of 3,036 null values across the entire dataset with 1,969 missing points under 
+#'director', 570 under 'cast', 476 under 'country', 11 under 'date_added', and 10 under 'rating'. 
+#We will have to handle all null data points before we can dive into EDA and modeling.
+
+
+# In[15]:
+
+
+netflix_titles_df['director'].fillna('No Director', inplace=True)
+netflix_titles_df['cast'].fillna('No Cast', inplace=True)
+netflix_titles_df['country'].fillna('Country Unavailable', inplace=True)
+netflix_titles_df.dropna(subset=['date_added','rating'],inplace=True)
+
+
+# In[16]:
+
+
+netflix_titles_df.isnull().any()
+#For null values, the easiest way to get rid of them would be to delete the rows with the missing data. However, this wouldn't be beneficial to our EDA since there is loss of information. Since 'director', 'cast', and 'country' contain the majority of null values, I will choose to treat each missing value as unavailable. The other two labels 'date_added' and 'rating' contains an insignificant portion of the data so I will drop them from the dataset. After, we can see that there are no more null values in the dataset.
+
+
+# In[17]:
+
+
+#### Splitting the Dataset
+#Since the dataset can either contain movies or shows, 
+#it'd be nice to have datasets for both so we can take a deep dive into just Netflix movies or Netflix TV shows 
+#so we will create two new datasets. 
+#One for movies and the other one for shows.
+
+
+# In[18]:
+
+
+netflix_movies_df = netflix_titles_df[netflix_titles_df['type']=='Movie'].copy()
+netflix_movies_df.head()
+
+
+# In[19]:
+
+
+netflix_shows_df = netflix_titles_df[netflix_titles_df['type']=='TV Show'].copy()
+netflix_shows_df.head()
+
+
+# In[ ]:
+
+
+### Data Preparation
+##In the duration column, there appears to be a discrepancy between movies and shows. 
+# Movies are based on the duration of the movie and shows are based on the number of seasons. To make EDA easier,
+# I will convert the values in these columns into integers for both the movies and shows datasets.
+
+
+# In[21]:
+
+
+netflix_movies_df.duration = netflix_movies_df.duration.str.replace(' min','').astype(int)
+netflix_shows_df.rename(columns={'duration':'seasons'}, inplace=True)
+netflix_shows_df.replace({'seasons':{'1 Season':'1 Seasons'}}, inplace=True)
+netflix_shows_df.seasons = netflix_shows_df.seasons.str.replace(' Seasons','').astype(int)
+
+
+# In[ ]:
+
+
+#### Exploratory Analysis and Visualization
+#First we will begin analysis on the entire Netflix dataset consisting of both movies and shows. Revisiting the data, let us see how it looked like again.
+
+
+# In[23]:
+
+
+netflix_titles_df.head()
+
+
+# In[24]:
+
+
+### Netflix Film Types: Movie or TV Show
+#It'd be interesting to see the comparison between the total number of movies and shows in this dataset 
+#just to get an idea of which one is the majority.
+
+
+# In[25]:
+
+
+plt.figure(figsize=(7,5))
+g = sns.countplot(netflix_titles_df.type, palette="pastel");
+plt.title("Count of Movies and TV Shows")
+plt.xlabel("Type (Movie/TV Show)")
+plt.ylabel("Total Count")
+plt.show()
+
+
+# In[26]:
+
+
+plt.figure(figsize=(12,6))
+plt.title("% of Netflix Titles that are either Movies or TV Shows")
+g = plt.pie(netflix_titles_df.type.value_counts(), explode=(0.025,0.025), labels=netflix_titles_df.type.value_counts().index, colors=['skyblue','navajowhite'],autopct='%1.1f%%', startangle=180);
+plt.legend()
+plt.show()
+
+
+# In[27]:
+
+
+#RESULT:
+#So there are roughly 4,000+ movies and almost 2,000 shows with movies being the majority. This makes sense since shows are always an ongoing thing and have episodes. If we were to do a headcount of TV show episodes vs. movies, I am sure that TV shows would come out as the majority. However, in terms of title, there are far more movie titles (68.5%) than TV show titles (31.5%).
+
+
+# In[ ]:
+
+
+### Netflix Film Ratings
+##Now, we will explore the ratings which are based on the film rating system. 
+#The ordering of the ratings will be based on the age of the respective audience from youngest to oldest.
+#We will not include the ratings 'NR' and 'UR' in the visuals since they stand for unrated and non-rated content.
+
+
+# In[28]:
+
+
+order =  ['G', 'TV-Y', 'TV-G', 'PG', 'TV-Y7', 'TV-Y7-FV', 'TV-PG', 'PG-13', 'TV-14', 'R', 'NC-17', 'TV-MA']
+plt.figure(figsize=(15,7))
+g = sns.countplot(netflix_titles_df.rating, hue=netflix_titles_df.type, order=order, palette="pastel");
+plt.title("Ratings for Movies & TV Shows")
+plt.xlabel("Rating")
+plt.ylabel("Total Count")
+plt.show()
+
+
+# In[29]:
+
+
+fig, ax = plt.subplots(1,2, figsize=(19, 5))
+g1 = sns.countplot(netflix_movies_df.rating, order=order,palette="Set2", ax=ax[0]);
+g1.set_title("Ratings for Movies")
+g1.set_xlabel("Rating")
+g1.set_ylabel("Total Count")
+g2 = sns.countplot(netflix_shows_df.rating, order=order,palette="Set2", ax=ax[1]);
+g2.set(yticks=np.arange(0,1600,200))
+g2.set_title("Ratings for TV Shows")
+g2.set_xlabel("Rating")
+g2.set_ylabel("Total Count")
+fig.show()
+
+
+# In[ ]:
+
+
+####Overall, there is much more content for a more mature audience. For the mature audience, 
+##there is much more movie content than there are TV shows. However, for the younger audience (under the age of 17),
+# it is the opposite, there are slightly more TV shows than there are movies.
+
+
+# In[32]:
+
+
+###### Content added each year
+##Now we will take a look at the amount content Netflix has added throughout the previous years. Since we are interested in when Netflix added the title onto their platform, we will add a 'year_added' column shows the year of the date from the 'date_added' column as shown above.
+netflix_titles_df['year_added'] = pd.DatetimeIndex(netflix_titles_df['date_added']).year
+netflix_movies_df['year_added'] = pd.DatetimeIndex(netflix_movies_df['date_added']).year
+netflix_shows_df['year_added'] = pd.DatetimeIndex(netflix_shows_df['date_added']).year
+netflix_titles_df['month_added'] = pd.DatetimeIndex(netflix_titles_df['date_added']).month
+netflix_movies_df['month_added'] = pd.DatetimeIndex(netflix_movies_df['date_added']).month
+netflix_shows_df['month_added'] = pd.DatetimeIndex(netflix_shows_df['date_added']).month
+
+
+# In[33]:
+
+
+netflix_year = netflix_titles_df['year_added'].value_counts().to_frame().reset_index().rename(columns={'index': 'year','year_added':'count'})
+netflix_year = netflix_year[netflix_year.year != 2020]
+netflix_year
+
+
+# In[34]:
+
+
+netflix_year2 = netflix_titles_df[['type','year_added']]
+movie_year = netflix_year2[netflix_year2['type']=='Movie'].year_added.value_counts().to_frame().reset_index().rename(columns={'index': 'year','year_added':'count'})
+movie_year = movie_year[movie_year.year != 2020]
+show_year = netflix_year2[netflix_year2['type']=='TV Show'].year_added.value_counts().to_frame().reset_index().rename(columns={'index': 'year','year_added':'count'})
+show_year = show_year[show_year.year != 2020]
+
+
+# In[35]:
+
+
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.lineplot(data=netflix_year, x='year', y='count')
+sns.lineplot(data=movie_year, x='year', y='count')
+sns.lineplot(data=show_year, x='year', y='count')
+ax.set_xticks(np.arange(2008, 2020, 1))
+plt.title("Total content added each year (up to 2019)")
+plt.legend(['Total','Movie','TV Show'])
+plt.ylabel("Releases")
+plt.xlabel("Year")
+plt.show()
+
+
+# In[36]:
+
+
+### Countries with the most content available
+filtered_countries = netflix_titles_df.set_index('title').country.str.split(', ', expand=True).stack().reset_index(level=1, drop=True);
+filtered_countries = filtered_countries[filtered_countries != 'Country Unavailable']
+
+plt.figure(figsize=(7,9))
+g = sns.countplot(y = filtered_countries, order=filtered_countries.value_counts().index[:20])
+plt.title('Top 20 Countries on Netflix')
+plt.xlabel('Titles')
+plt.ylabel('Country')
+plt.show()
+
+
+# In[ ]:
+
+
+
+
